@@ -19,7 +19,7 @@ or add fsst-rust to `Cargo.toml`
 
 ```
 [dependencies]
-fsst-rust = "0.1.0"
+fsst-rust = "0.1.1"
 ```
 
 ## Usage
