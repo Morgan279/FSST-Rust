@@ -6,6 +6,7 @@ description = "FSST-Rust is a pure rust implementation of the Fast Static Symbol
 keywords = ["fsst", "fast_static_symtab", "string_encoding"]
 categories = ["compression", "encoding"]
 repository = "https://github.com/Morgan279/FSST-Rust"
+documentation = "https://docs.rs/fsst-rust"
 license = "Apache-2.0"
 version = "0.1.0"
 edition = "2021"

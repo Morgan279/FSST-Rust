@@ -1,5 +1,9 @@
 # FSST-Rust
 
+[![Crates.io](https://img.shields.io/crates/v/fsst-rust)](https://crates.io/crates/fsst-rust)
+[![Documentation](https://docs.rs/fsst-rust/badge.svg)](https://docs.rs/fsst-rust)
+[![License](https://img.shields.io/crates/l/fsst-rust)](#license)
+
 A pure rust implementation of
 the [Fast Static Symbol Table](https://github.com/cwida/fsst/raw/master/fsstcompression.pdf).
 
