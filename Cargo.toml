@@ -2,6 +2,7 @@
 authors = ["Herbert Long <wclong279@gmail.com>"]
 name = "fsst-rust"
 readme = "README.md"
+description = "FSST-Rust is a pure rust implementation of the Fast Static Symbol Table"
 keywords = ["fsst", "fast_static_symtab", "string_encoding"]
 categories = ["compression", "encoding"]
 repository = "https://github.com/Morgan279/FSST-Rust"
