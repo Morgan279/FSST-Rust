@@ -1,0 +1,41 @@
+[package]
+authors = ["Herbert Long <wclong279@gmail.com>"]
+name = "fsst-rust"
+readme = "README.md"
+keywords = ["fsst", "fast_static_symtab", "string_encoding"]
+categories = ["compression", "encoding"]
+repository = "https://github.com/Morgan279/FSST-Rust"
+license = "Apache-2.0"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+zstd = "0.13"
+
+[target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
+jemallocator = "0.5"
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'unwind'
+incremental = false
+overflow-checks = false
+
+[[example]]
+name = "single_str"
+
+[[bench]]
+name = 'compress'
+harness = false
+
+[[bench]]
+name = 'decompress'
+harness = false
