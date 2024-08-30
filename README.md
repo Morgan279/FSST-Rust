@@ -7,6 +7,21 @@
 A pure rust implementation of
 the [Fast Static Symbol Table](https://github.com/cwida/fsst/raw/master/fsstcompression.pdf).
 
+## Quick to use
+
+use `cargo add`
+
+```bash
+cargo add fsst-rust
+```
+
+or add fsst-rust to `Cargo.toml`
+
+```
+[dependencies]
+fsst-rust = "0.1.0"
+```
+
 ## Usage
 
 de/compress a single string
@@ -42,9 +57,9 @@ let decompress_time = start_time.elapsed();
 let mut encoding_size = symbol_table.dump().len();
 let mut total_size = 0;
 for i in 0..strings.len() {
-total_size += strings[i].len();
-encoding_size += encodings[i].len();
-assert_eq ! (strings[i], decode_strings[i]);
+    total_size += strings[i].len();
+    encoding_size += encodings[i].len();
+    assert_eq ! (strings[i], decode_strings[i]);
 }
 
 let compress_factor = total_size as f64 / encoding_size as f64;
