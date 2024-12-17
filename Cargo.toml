@@ -11,14 +11,9 @@ license = "Apache-2.0"
 version = "0.1.1"
 edition = "2021"
 
-[dependencies]
-
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
-zstd = "0.13"
-
-[target.'cfg(not(target_env = "msvc"))'.dev-dependencies]
-jemallocator = "0.5"
+zstd = "0.13.3"
 
 [profile.release]
 opt-level = 3
@@ -38,6 +33,6 @@ name = "single_str"
 name = 'compress'
 harness = false
 
-[[bench]]
-name = 'decompress'
-harness = false
+#[[bench]]
+#name = 'decompress'
+#harness = false

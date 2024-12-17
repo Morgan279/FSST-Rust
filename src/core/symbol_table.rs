@@ -1,44 +1,30 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
-use crate::core::{CODE_BASE, CODE_MASK, CODE_MAX, fsst_hash, is_escape_code, LEN_BITS};
 use crate::core::counter::Counter;
 use crate::core::symbol::Symbol;
+use crate::core::{fsst_hash, is_escape_code, CODE_BASE, CODE_MASK, CODE_MAX, LEN_BITS};
 use crate::util::endian::Endian;
 
-pub trait SymbolTable: SymbolTableClone + Display {
+pub trait SymbolTable: Display {
     fn add(&mut self, s: Symbol) -> bool;
     fn find_longest_symbol_code(&self, str_bytes: &[u8]) -> u16;
     fn get_symbol(&self, code: u16) -> &Symbol;
     fn encode_for(&self, target: &Symbol) -> (u8, usize, usize);
     fn len(&self) -> usize;
+    fn is_empty(&self) -> bool;
     fn clear(&mut self);
     fn finalize(&mut self);
     fn dump(&self) -> Vec<u8>;
 }
 
-pub trait SymbolTableClone {
-    fn clone_box<'a>(&self) -> Box<dyn SymbolTable + 'a>
-    where
-        Self: 'a;
-}
-
-impl<T: Clone + SymbolTable> SymbolTableClone for T {
-    fn clone_box<'a>(&self) -> Box<dyn SymbolTable + 'a>
-    where
-        Self: 'a,
-    {
-        Box::new(self.clone())
-    }
-}
-
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct PerfectHashSymbolTable {
     // lookup table (only used during symbolTable construction, not during normal text compression)
     byte_codes: [u16; CODE_BASE as usize],
 
     // lookup table using the next two bytes (65536 codes), or just the next single byte
-    short_codes: [u16; 65536],
+    short_codes: Vec<u16>,
 
     hash_table: [Symbol; PerfectHashSymbolTable::TABLE_SIZE],
     symbols: [Symbol; CODE_MAX as usize],
@@ -60,9 +46,9 @@ impl PerfectHashSymbolTable {
             symbols[i as usize] = Symbol::from_byte_code(i as u8, byte_code);
         }
 
-        let mut short_codes = [0u16; 65536];
-        for i in 0..short_codes.len() {
-            short_codes[i] = (1 << LEN_BITS) | ((i as u16) & 0xff);
+        let mut short_codes = vec![0; 65536];
+        for (i, short_code) in short_codes.iter_mut().enumerate() {
+            *short_code = (1 << LEN_BITS) | ((i as u16) & 0xff);
         }
 
         let len_histo = [0u8; Symbol::MAX_LEN];
@@ -85,7 +71,7 @@ impl PerfectHashSymbolTable {
         }
 
         src_symbol.update_to(s);
-        return true;
+        true
     }
 
     fn get_hash_symbol_mut(&mut self, hash_value: usize) -> &mut Symbol {
@@ -117,7 +103,7 @@ impl SymbolTable for PerfectHashSymbolTable {
         self.symbols[code as usize] = s;
         self.symbol_num += 1;
         self.len_histo[len - 1] += 1;
-        return true;
+        true
     }
 
     fn find_longest_symbol_code(&self, str_bytes: &[u8]) -> u16 {
@@ -155,6 +141,10 @@ impl SymbolTable for PerfectHashSymbolTable {
 
     fn len(&self) -> usize {
         self.symbol_num as usize
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     fn clear(&mut self) {
@@ -265,7 +255,7 @@ pub struct SymbolTableBuilder {
 }
 
 impl SymbolTableBuilder {
-    pub fn build_from(s: &str) -> Box<dyn SymbolTable> {
+    pub fn build_from(s: &str) -> impl SymbolTable {
         let str = String::from(s);
         let sample = vec![&str];
         SymbolTableBuilder {
@@ -274,16 +264,16 @@ impl SymbolTableBuilder {
         }.build(&sample)
     }
 
-    pub fn build_from_samples(samples: &Vec<&String>) -> Box<dyn SymbolTable> {
+    pub fn build_from_samples(samples: &[&String]) -> impl SymbolTable {
         SymbolTableBuilder {
             counter: Counter::new(),
             count_frac: 5,
         }.build(samples)
     }
 
-    fn build(&mut self, samples: &Vec<&String>) -> Box<dyn SymbolTable> {
-        let mut symbol_table: Box<dyn SymbolTable> = Box::new(PerfectHashSymbolTable::new());
-        let mut best_table = symbol_table.clone_box();
+    fn build(&mut self, samples: &[&String]) -> impl SymbolTable {
+        let mut symbol_table = PerfectHashSymbolTable::new();
+        let mut best_table = symbol_table.clone();
         let mut best_gain = i64::MIN;
         let mut best_single = [0u8; Counter::ENTRY_SIZE * 2];
         let mut sample_frac = 8;
@@ -292,7 +282,7 @@ impl SymbolTableBuilder {
             if gain > best_gain {
                 best_gain = gain;
                 best_single = self.counter.backup_single();
-                best_table = symbol_table.clone_box();
+                best_table = symbol_table.clone();
             }
             if sample_frac >= 128 {
                 break;
@@ -307,7 +297,7 @@ impl SymbolTableBuilder {
         best_table
     }
 
-    fn compute_freq(&mut self, samples: &Vec<&String>, sample_frac: u32, symbol_table: &Box<dyn SymbolTable>) -> i64 {
+    fn compute_freq<T: SymbolTable>(&mut self, samples: &[&String], sample_frac: u32, symbol_table: &T) -> i64 {
         let mut gain = 0i64;
         for i in 0..samples.len() {
             if samples.len() > 128 && sample_frac < 128 {
@@ -321,10 +311,10 @@ impl SymbolTableBuilder {
         gain
     }
 
-    fn count_line(&mut self, str_bytes: &[u8], sample_frac: u32, symbol_table: &Box<dyn SymbolTable>) -> i64 {
+    fn count_line<T: SymbolTable>(&mut self, str_bytes: &[u8], sample_frac: u32, symbol_table: &T) -> i64 {
         let mut gain = 0i64;
         let mut pos = 0;
-        let mut code1 = symbol_table.find_longest_symbol_code(&str_bytes);
+        let mut code1 = symbol_table.find_longest_symbol_code(str_bytes);
         let mut s1 = symbol_table.get_symbol(code1);
         loop {
             self.counter.inc_single(code1 as usize);
@@ -351,7 +341,7 @@ impl SymbolTableBuilder {
         gain
     }
 
-    fn make_table(&mut self, sample_frac: u32, symbol_table: &mut Box<dyn SymbolTable>) {
+    fn make_table<T: SymbolTable>(&mut self, sample_frac: u32, symbol_table: &mut T) {
         let mut candidates: HashMap<Symbol, u32> = HashMap::with_capacity(CODE_MAX as usize);
         let end = CODE_BASE as usize + symbol_table.len();
         let mut pos1 = 0usize;
@@ -367,7 +357,7 @@ impl SymbolTableBuilder {
                 1 => 8 * cnt1,
                 _ => cnt1
             };
-            self.expand_candidate(&mut candidates, s1.clone(), heuristic_cnt, sample_frac);
+            self.expand_candidate(&mut candidates, *s1, heuristic_cnt, sample_frac);
             if s1.length() == Symbol::MAX_LEN
                 || sample_frac >= 128 {
                 pos1 += 1;

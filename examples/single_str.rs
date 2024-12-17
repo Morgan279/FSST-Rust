@@ -1,5 +1,6 @@
-use fsst_rust::{decode_string, encode_string};
 use fsst_rust::core::codec::Decoder;
+use fsst_rust::core::symbol_table::SymbolTable;
+use fsst_rust::{decode_string, encode_string};
 
 fn main() {
     let str = "tumcwitumvldb";

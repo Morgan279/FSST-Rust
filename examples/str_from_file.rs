@@ -1,3 +1,4 @@
+use fsst_rust::core::symbol_table::SymbolTable;
 use fsst_rust::{decode_all_strings, encode_all_strings, read_string_lines};
 
 fn main() {

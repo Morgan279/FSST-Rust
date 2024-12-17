@@ -5,14 +5,6 @@ pub enum Endian {
 }
 
 impl Endian {
-    pub fn from_u8(b: u8) -> Endian {
-        match b {
-            0u8 => Endian::Little,
-            1u8 => Endian::Big,
-            _ => panic!("unknown endian byte {}", b)
-        }
-    }
-
     pub fn get_native_endian() -> Endian {
         #[cfg(target_endian = "little")]
         {
@@ -25,11 +17,21 @@ impl Endian {
     }
 }
 
-impl Into<u8> for Endian {
-    fn into(self) -> u8 {
-        match self {
+impl From<Endian> for u8 {
+    fn from(val: Endian) -> Self {
+        match val {
             Endian::Little => 0u8,
             Endian::Big => 1u8
+        }
+    }
+}
+
+impl From<u8> for Endian {
+    fn from(value: u8) -> Self {
+        match value {
+            0u8 => Endian::Little,
+            1u8 => Endian::Big,
+            _ => panic!("unknown endian byte {}", value)
         }
     }
 }

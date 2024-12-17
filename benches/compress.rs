@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate criterion;
 
-use criterion::{BatchSize, Criterion, criterion_group};
+use criterion::{criterion_group, BatchSize, Criterion};
 
 use fsst_rust::{encode_all_strings, read_string_lines};
 

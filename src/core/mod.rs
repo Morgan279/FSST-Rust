@@ -1,19 +1,19 @@
 use std::cmp::{max, min};
 
-mod symbol;
+pub mod symbol;
 mod counter;
 pub mod symbol_table;
 pub mod codec;
 
-const U64_SIZE: usize = size_of::<u64>();
+pub(crate) const U64_SIZE: usize = size_of::<u64>();
 const CODE_MAX: u16 = 1 << 9;
 const CODE_MASK: u16 = CODE_MAX - 1;
 const CODE_BASE: u16 = 256;
-const CODE_ESCAPE: u8 = 255;
+pub(crate) const CODE_ESCAPE: u8 = 255;
 const LEN_BITS: u16 = 12;
 const HASH_SHIFT: usize = 15;
 const HASH_PRIME: usize = 2971215073;
-const SAMPLE_TARGET: usize = 1 << 16;
+pub(crate) const SAMPLE_TARGET: usize = 1 << 16;
 const SMALL_STR_THRESHOLD: usize = 1 << 14;
 
 type U64Bytes = [u8; U64_SIZE];
@@ -35,7 +35,7 @@ fn bulk_load(s: &[u8]) -> u64 {
     }
 }
 
-fn bulk_load_u32(s: &[u8]) -> u32 {
+pub(crate) fn bulk_load_u32(s: &[u8]) -> u32 {
     let mut v = [0u8; 4];
     v[..s.len()].copy_from_slice(s);
     unsafe {
@@ -43,7 +43,7 @@ fn bulk_load_u32(s: &[u8]) -> u32 {
     }
 }
 
-pub fn take_sample(sample_space: &Vec<String>) -> Vec<&String> {
+pub fn take_sample(sample_space: &[String]) -> Vec<&String> {
     let total_size = sample_space.iter().map(|s| s.len()).sum::<usize>();
     let (mut sample_size, mut sample_prob, mut sample_target) = (0usize, 256usize, SAMPLE_TARGET);
     if total_size > sample_target {

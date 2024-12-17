@@ -1,14 +1,14 @@
-use crate::core::{bulk_load_u32, CODE_ESCAPE, U64_SIZE};
 use crate::core::symbol::Symbol;
 use crate::core::symbol_table::SymbolTable;
+use crate::core::{bulk_load_u32, CODE_ESCAPE, U64_SIZE};
 use crate::util::endian::Endian;
 
-pub struct Encoder<'a> {
-    symbol_table: &'a Box<dyn SymbolTable>,
+pub struct Encoder<'a, T: SymbolTable> {
+    symbol_table: &'a T,
 }
 
-impl Encoder<'_> {
-    pub fn from_table(table: &Box<dyn SymbolTable>) -> Encoder {
+impl<T: SymbolTable> Encoder<'_, T> {
+    pub fn from_table(table: &T) -> Encoder<T> {
         Encoder { symbol_table: table }
     }
 
@@ -16,7 +16,7 @@ impl Encoder<'_> {
         let mut buf = vec![0; str.len() << 1];
         let (mut pos_in, mut pos_out) = (0, 0);
         while pos_in < str.len() {
-            let target = Symbol::from_str(&str[pos_in..]);
+            let target = Symbol::from_str_unchecked(&str[pos_in..]);
             buf[pos_out + 1] = target.first() as u8;
             let (code, s_len, out_len) = self.symbol_table.encode_for(&target);
             buf[pos_out] = code;
@@ -47,7 +47,7 @@ pub struct Decoder {
 }
 
 impl Decoder {
-    pub fn from_table(table: &Box<dyn SymbolTable>) -> Decoder {
+    pub fn from_table<T: SymbolTable>(table: &T) -> Decoder {
         let mut symbols = [0u64; CODE_ESCAPE as usize];
         let mut lens = [0u8; CODE_ESCAPE as usize];
         for i in 0..table.len() {
@@ -58,10 +58,10 @@ impl Decoder {
         Decoder { symbols, lens }
     }
 
-    pub fn from_table_bytes(buf: &Vec<u8>) -> (usize, Decoder) {
+    pub fn from_table_bytes(buf: &[u8]) -> (usize, Decoder) {
         let mut symbols = [0u64; CODE_ESCAPE as usize];
         let mut lens = [0u8; CODE_ESCAPE as usize];
-        let encode_endian = Endian::from_u8(*buf.get(0).unwrap());
+        let encode_endian: Endian = buf[0].into();
         let len_histo = &buf[1..9];
         let (mut pos, mut code) = (9, 0usize);
         for len in 1..=Symbol::MAX_LEN {
@@ -90,7 +90,7 @@ impl Decoder {
     }
 
     /// safe decode method
-    pub fn decode_with_tab(table: &Box<dyn SymbolTable>, buf: &Vec<u8>) -> String {
+    pub fn decode_with_tab<T: SymbolTable>(table: &T, buf: &[u8]) -> String {
         let mut str = String::with_capacity(buf.len() * 4);
         let mut pos = 0;
         while pos < buf.len() {
@@ -107,7 +107,7 @@ impl Decoder {
     }
 
     /// decode method that uses the unsafe method
-    pub fn decode(&self, str_buf: &Vec<u8>) -> String {
+    pub fn decode(&self, str_buf: &[u8]) -> String {
         let (mut pos_in, mut pos_out) = (0, 0);
         let mut decode_buf = vec![0u8; str_buf.len() * Symbol::MAX_LEN];
         unsafe {
@@ -116,14 +116,14 @@ impl Decoder {
                 let next_block = bulk_load_u32(&str_buf[pos_in..pos_in + 4]);
                 let escape_mask = (next_block & 0x80808080) & ((((!next_block) & 0x7F7F7F7F) + 0x7F7F7F7F) ^ 0x80808080);
                 if escape_mask == 0 {
-                    self.unaligned_store(&mut pos_in, &mut pos_out, &str_buf, out);
-                    self.unaligned_store(&mut pos_in, &mut pos_out, &str_buf, out);
-                    self.unaligned_store(&mut pos_in, &mut pos_out, &str_buf, out);
-                    self.unaligned_store(&mut pos_in, &mut pos_out, &str_buf, out);
+                    self.unaligned_store(&mut pos_in, &mut pos_out, str_buf, out);
+                    self.unaligned_store(&mut pos_in, &mut pos_out, str_buf, out);
+                    self.unaligned_store(&mut pos_in, &mut pos_out, str_buf, out);
+                    self.unaligned_store(&mut pos_in, &mut pos_out, str_buf, out);
                 } else {
                     let mut first_escape_pos = escape_mask.trailing_zeros() >> 3;
                     while first_escape_pos > 0 {
-                        self.unaligned_store(&mut pos_in, &mut pos_out, &str_buf, out);
+                        self.unaligned_store(&mut pos_in, &mut pos_out, str_buf, out);
                         first_escape_pos -= 1;
                     }
                     decode_buf[pos_out] = str_buf[pos_in + 1];
@@ -133,7 +133,7 @@ impl Decoder {
             }
             while pos_in < str_buf.len() {
                 if str_buf[pos_in] != CODE_ESCAPE {
-                    self.unaligned_store(&mut pos_in, &mut pos_out, &str_buf, out);
+                    self.unaligned_store(&mut pos_in, &mut pos_out, str_buf, out);
                 } else {
                     decode_buf[pos_out] = str_buf[pos_in + 1];
                     pos_in += 2;
@@ -146,7 +146,7 @@ impl Decoder {
     }
 
     #[inline(always)]
-    unsafe fn unaligned_store(&self, pos_in: &mut usize, pos_out: &mut usize, str_in: &Vec<u8>, out: *mut u8) {
+    unsafe fn unaligned_store(&self, pos_in: &mut usize, pos_out: &mut usize, str_in: &[u8], out: *mut u8) {
         let code = str_in[*pos_in] as usize;
         std::ptr::copy_nonoverlapping(self.symbols[code].to_ne_bytes().as_ptr(), out.add(*pos_out), U64_SIZE);
         *pos_in += 1;
@@ -157,6 +157,7 @@ impl Decoder {
 #[cfg(test)]
 mod test {
     use crate::core::codec::{Decoder, Encoder};
+    use crate::core::symbol_table::SymbolTable;
     use crate::core::symbol_table::SymbolTableBuilder;
 
     #[test]

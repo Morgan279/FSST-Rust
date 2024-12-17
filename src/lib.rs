@@ -3,7 +3,7 @@ use std::io;
 use std::io::BufRead;
 use std::path::Path;
 
-use crate::core::codec::{Decoder, Encoder};
+use self::core::codec::{Decoder, Encoder};
 use crate::core::symbol_table::{SymbolTable, SymbolTableBuilder};
 use crate::core::take_sample;
 
@@ -26,14 +26,14 @@ mod util;
 /// let decode_str = decoder.decode(&encoding);
 /// assert_eq!(str, decode_str);
 /// ```
-pub fn build_table_by_sampling(strings: &Vec<String>) -> Box<dyn SymbolTable> {
-    let sample = take_sample(&strings);
+pub fn build_table_by_sampling(strings: &[String]) -> impl SymbolTable {
+    let sample = take_sample(strings);
     SymbolTableBuilder::build_from_samples(&sample)
 }
 
 /// encode all given strings
 /// it will sample the given strings and build a symbol table which will be returned in a tuple
-pub fn encode_all_strings(strings: &Vec<String>) -> (Box<dyn SymbolTable>, Vec<Vec<u8>>) {
+pub fn encode_all_strings(strings: &[String]) -> (impl SymbolTable, Vec<Vec<u8>>) {
     let symbol_table = build_table_by_sampling(strings);
     let encoder = Encoder::from_table(&symbol_table);
     let mut encodings = Vec::with_capacity(strings.len());
@@ -57,7 +57,7 @@ pub fn encode_all_strings(strings: &Vec<String>) -> (Box<dyn SymbolTable>, Vec<V
 /// let decode_str = decoder.decode(&encoding[table_end_pos..].to_vec());
 /// assert_eq!(str, decode_str);
 /// ```
-pub fn encode_string(str: &str, including_table: bool) -> (Box<dyn SymbolTable>, Vec<u8>) {
+pub fn encode_string(str: &str, including_table: bool) -> (impl SymbolTable, Vec<u8>) {
     let symbol_table = SymbolTableBuilder::build_from(str);
     let encoder = Encoder::from_table(&symbol_table);
     let encoding = encoder.encode(str, including_table);
@@ -65,12 +65,12 @@ pub fn encode_string(str: &str, including_table: bool) -> (Box<dyn SymbolTable>,
 }
 
 /// decode bytes to string according to the give symbol table
-pub fn decode_string(table: &Box<dyn SymbolTable>, encoding: &Vec<u8>) -> String {
+pub fn decode_string<T: SymbolTable>(table: &T, encoding: &[u8]) -> String {
     Decoder::from_table(table).decode(encoding)
 }
 
 /// decode all string encodings by the given symbol table
-pub fn decode_all_strings(table: &Box<dyn SymbolTable>, encodings: &Vec<Vec<u8>>) -> Vec<String> {
+pub fn decode_all_strings<T: SymbolTable>(table: &T, encodings: &Vec<Vec<u8>>) -> Vec<String> {
     let mut strings = Vec::with_capacity(encodings.len());
     let decoder = Decoder::from_table(table);
     for encoding in encodings {
@@ -79,7 +79,7 @@ pub fn decode_all_strings(table: &Box<dyn SymbolTable>, encodings: &Vec<Vec<u8>>
     strings
 }
 
-pub fn encode_all_strings_from_file<P: AsRef<Path>>(filename: P) -> io::Result<(Box<dyn SymbolTable>, Vec<Vec<u8>>)> {
+pub fn encode_all_strings_from_file<P: AsRef<Path>>(filename: P) -> io::Result<(impl SymbolTable, Vec<Vec<u8>>)> {
     let strings = read_string_lines(filename)?;
     Ok(encode_all_strings(&strings))
 }
